@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Système d'Enregistrement - Entrées/Sorties</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo-section">
+                <h1>Gestion des Accès</h1>
+                <p class="subtitle">Système d'enregistrement autonome</p>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Visitor Registration Form -->
+            <div id="registrationView" class="view active">
+                <div class="welcome-message">
+                    <h2>Bienvenue</h2>
+                    <p>Veuillez vous enregistrer pour votre entrée ou sortie</p>
+                </div>
+
+                <form id="visitorForm" class="visitor-form">
+                    <div class="form-group">
+                        <label for="name">Nom complet *</label>
+                        <input type="text" id="name" name="name" required placeholder="Entrez votre nom complet">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="company">Entreprise</label>
+                        <input type="text" id="company" name="company" placeholder="Nom de votre entreprise">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" name="email" placeholder="votre.email@exemple.com">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="phone">Téléphone</label>
+                        <input type="tel" id="phone" name="phone" placeholder="+33 6 12 34 56 78">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="visitReason">Motif de la visite</label>
+                        <select id="visitReason" name="visitReason">
+                            <option value="">Sélectionnez un motif</option>
+                            <option value="meeting">Réunion</option>
+                            <option value="delivery">Livraison</option>
+                            <option value="maintenance">Maintenance</option>
+                            <option value="interview">Entretien</option>
+                            <option value="other">Autre</option>
+                        </select>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button type="submit" name="action" value="entry" class="btn btn-entry">
+                            <span class="btn-icon">→</span>
+                            Enregistrer une ENTRÉE
+                        </button>
+                        <button type="submit" name="action" value="exit" class="btn btn-exit">
+                            <span class="btn-icon">←</span>
+                            Enregistrer une SORTIE
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Quick Exit for returning visitors -->
+                <div class="quick-exit-section">
+                    <h3>Déjà enregistré aujourd'hui ?</h3>
+                    <button id="quickExitBtn" class="btn btn-secondary">Enregistrer une sortie rapide</button>
+                </div>
+            </div>
+
+            <!-- Success Message View -->
+            <div id="successView" class="view">
+                <div class="success-message">
+                    <div class="success-icon">✓</div>
+                    <h2 id="successTitle">Enregistrement réussi</h2>
+                    <p id="successText">Votre entrée a été enregistrée</p>
+                    <div class="success-details">
+                        <p><strong>Nom:</strong> <span id="successName"></span></p>
+                        <p><strong>Date:</strong> <span id="successDate"></span></p>
+                        <p><strong>Heure:</strong> <span id="successTime"></span></p>
+                    </div>
+                    <button id="newEntryBtn" class="btn btn-primary">Nouvel enregistrement</button>
+                </div>
+            </div>
+
+            <!-- Admin Panel -->
+            <div id="adminView" class="view">
+                <div class="admin-header">
+                    <h2>Tableau de bord administrateur</h2>
+                    <button id="closeAdminBtn" class="btn btn-secondary">Fermer</button>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>Présents actuellement</h3>
+                        <p class="stat-number" id="currentVisitors">0</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Entrées aujourd'hui</h3>
+                        <p class="stat-number" id="todayEntries">0</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Sorties aujourd'hui</h3>
+                        <p class="stat-number" id="todayExits">0</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Total visites</h3>
+                        <p class="stat-number" id="totalVisits">0</p>
+                    </div>
+                </div>
+
+                <div class="visitors-section">
+                    <h3>Visiteurs présents</h3>
+                    <div id="currentVisitorsList" class="visitors-list"></div>
+                </div>
+
+                <div class="history-section">
+                    <h3>Historique des enregistrements</h3>
+                    <div class="filter-controls">
+                        <input type="date" id="filterDate" class="filter-input">
+                        <button id="exportBtn" class="btn btn-secondary">Exporter CSV</button>
+                        <button id="clearDataBtn" class="btn btn-danger">Effacer les données</button>
+                    </div>
+                    <div id="historyList" class="history-list"></div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <button id="adminAccessBtn" class="admin-link">Accès administrateur</button>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
