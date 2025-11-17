@@ -60,7 +60,7 @@ try {
 define('ADMIN_PASSWORD', '7v5v822c');
 
 // Fonction pour récupérer les headers (compatible tous serveurs)
-function getAllHeaders() {
+function getRequestHeadersSafe() {
     if (function_exists('getallheaders')) {
         return getallheaders();
     }
@@ -69,15 +69,14 @@ function getAllHeaders() {
     $headers = [];
     foreach ($_SERVER as $name => $value) {
         if (substr($name, 0, 5) == 'HTTP_') {
-            $headerName = str_replace(' ', '-', ucwords(strtolower(str_replace('_', ' ', substr($name, 5)))));
-            $headers[$headerName] = $value;
+            $headers[str_replace(' ', '-', ucwords(strtolower(str_replace('_', ' ', substr($name, 5)))))] = $value;
         }
     }
     return $headers;
 }
 
 function verifyAdminPassword() {
-    $headers = getAllHeaders();
+    $headers = getRequestHeadersSafe();
     $password = isset($headers['X-Admin-Password']) ? $headers['X-Admin-Password'] : '';
 
     if ($password !== ADMIN_PASSWORD) {
