@@ -1,8 +1,13 @@
 <?php
+// Afficher les erreurs PHP pour le débogage (à désactiver en production)
+error_reporting(E_ALL);
+ini_set('display_errors', 0); // Désactivé pour ne pas casser le JSON
+ini_set('log_errors', 1);
+
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
+header('Access-Control-Allow-Headers: Content-Type, X-Admin-Password');
 
 // Répondre aux requêtes OPTIONS (preflight)
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -10,32 +15,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
-// Configuration de la base de données SQLite
-$dbFile = __DIR__ . '/visitors.db';
-$db = new PDO('sqlite:' . $dbFile);
-$db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-
-// Créer la table si elle n'existe pas
-$db->exec("CREATE TABLE IF NOT EXISTS visitors (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    company TEXT,
-    email TEXT,
-    phone TEXT,
-    visitReason TEXT,
-    action TEXT NOT NULL,
-    timestamp TEXT NOT NULL,
-    date TEXT NOT NULL,
-    time TEXT NOT NULL
-)");
-
-// Mot de passe administrateur (à changer)
-define('ADMIN_PASSWORD', '7v5v822c');
-
-// Fonctions utilitaires
+// Fonctions utilitaires (définies en premier)
 function sendResponse($data, $code = 200) {
     http_response_code($code);
-    echo json_encode($data);
+    echo json_encode($data, JSON_UNESCAPED_UNICODE);
     exit();
 }
 
@@ -43,8 +26,58 @@ function sendError($message, $code = 400) {
     sendResponse(['error' => $message], $code);
 }
 
+// Configuration de la base de données SQLite
+$dbFile = __DIR__ . '/visitors.db';
+
+try {
+    // Vérifier si le répertoire est accessible en écriture
+    if (!is_writable(__DIR__)) {
+        sendError('Le répertoire n\'est pas accessible en écriture. Vérifiez les permissions.', 500);
+    }
+
+    $db = new PDO('sqlite:' . $dbFile);
+    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+    // Créer la table si elle n'existe pas
+    $db->exec("CREATE TABLE IF NOT EXISTS visitors (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        company TEXT,
+        email TEXT,
+        phone TEXT,
+        visitReason TEXT,
+        action TEXT NOT NULL,
+        timestamp TEXT NOT NULL,
+        date TEXT NOT NULL,
+        time TEXT NOT NULL
+    )");
+
+} catch (PDOException $e) {
+    sendError('Erreur de connexion à la base de données: ' . $e->getMessage(), 500);
+}
+
+// Mot de passe administrateur (à changer)
+define('ADMIN_PASSWORD', '7v5v822c');
+
+// Fonction pour récupérer les headers (compatible tous serveurs)
+function getAllHeaders() {
+    if (function_exists('getallheaders')) {
+        return getallheaders();
+    }
+
+    // Fallback pour les serveurs qui n'ont pas getallheaders()
+    $headers = [];
+    foreach ($_SERVER as $name => $value) {
+        if (substr($name, 0, 5) == 'HTTP_') {
+            $headerName = str_replace(' ', '-', ucwords(strtolower(str_replace('_', ' ', substr($name, 5)))));
+            $headers[$headerName] = $value;
+        }
+    }
+    return $headers;
+}
+
 function verifyAdminPassword() {
-    $headers = getallheaders();
+    $headers = getAllHeaders();
     $password = isset($headers['X-Admin-Password']) ? $headers['X-Admin-Password'] : '';
 
     if ($password !== ADMIN_PASSWORD) {
