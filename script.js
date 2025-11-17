@@ -1,28 +1,72 @@
 // Configuration
-const STORAGE_KEY = 'visitor_records';
-const ADMIN_PASSWORD = 'admin123'; // À changer pour la production
+const API_URL = 'http://192.168.5.76/api.php';
+const ADMIN_PASSWORD = '7v5v822c'; // À changer pour la production
 
 // État de l'application
 let visitors = [];
+let adminToken = null;
 
 // Initialisation au chargement de la page
 document.addEventListener('DOMContentLoaded', () => {
-    loadVisitors();
     initializeEventListeners();
-    updateStats();
 });
 
-// Chargement des données depuis localStorage
-function loadVisitors() {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-        visitors = JSON.parse(stored);
+// Fonctions API
+async function apiRequest(action, options = {}) {
+    try {
+        const url = `${API_URL}?action=${action}`;
+        const headers = {
+            'Content-Type': 'application/json'
+        };
+
+        // Ajouter le mot de passe admin si disponible
+        if (adminToken) {
+            headers['X-Admin-Password'] = adminToken;
+        }
+
+        const response = await fetch(url, {
+            method: options.method || 'GET',
+            headers: headers,
+            body: options.body ? JSON.stringify(options.body) : null
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Erreur serveur');
+        }
+
+        return data;
+    } catch (error) {
+        console.error('Erreur API:', error);
+        throw error;
     }
 }
 
-// Sauvegarde des données dans localStorage
-function saveVisitors() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(visitors));
+// Chargement des données depuis le serveur
+async function loadVisitors() {
+    try {
+        const data = await apiRequest('getAll');
+        visitors = data.visitors;
+    } catch (error) {
+        console.error('Erreur lors du chargement des visiteurs:', error);
+        alert('Impossible de charger les données. Vérifiez la connexion au serveur.');
+    }
+}
+
+// Sauvegarde d'un visiteur sur le serveur
+async function saveVisitor(visitor) {
+    try {
+        await apiRequest('add', {
+            method: 'POST',
+            body: visitor
+        });
+        return true;
+    } catch (error) {
+        console.error('Erreur lors de l\'enregistrement:', error);
+        alert('Erreur lors de l\'enregistrement. Veuillez réessayer.');
+        return false;
+    }
 }
 
 // Initialisation des écouteurs d'événements
@@ -48,7 +92,7 @@ function initializeEventListeners() {
 }
 
 // Gestion de la soumission du formulaire
-function handleFormSubmit(e) {
+async function handleFormSubmit(e) {
     e.preventDefault();
 
     // Récupération du bouton cliqué
@@ -76,9 +120,12 @@ function handleFormSubmit(e) {
         time: new Date().toLocaleTimeString('fr-FR')
     };
 
-    // Enregistrement du visiteur
-    visitors.push(visitor);
-    saveVisitors();
+    // Enregistrement du visiteur sur le serveur
+    const success = await saveVisitor(visitor);
+
+    if (!success) {
+        return;
+    }
 
     // Affichage du message de succès
     showSuccessMessage(visitor);
@@ -110,41 +157,40 @@ function showSuccessMessage(visitor) {
 }
 
 // Gestion de la sortie rapide
-function showQuickExit() {
-    const today = new Date().toLocaleDateString('fr-FR');
-    const todayVisitors = visitors.filter(v =>
-        v.date === today && v.action === 'entry'
-    );
+async function showQuickExit() {
+    try {
+        // Charger les visiteurs du jour depuis le serveur
+        const data = await apiRequest('getToday');
+        const todayVisitors = data.visitors;
 
-    if (todayVisitors.length === 0) {
-        alert('Aucune entrée enregistrée aujourd\'hui');
-        return;
-    }
+        // Créer une liste des visiteurs présents
+        const presentVisitors = getPresentVisitorsFromList(todayVisitors);
 
-    // Créer une liste des visiteurs présents
-    const presentVisitors = getPresentVisitors();
-
-    if (presentVisitors.length === 0) {
-        alert('Aucun visiteur actuellement présent');
-        return;
-    }
-
-    const names = presentVisitors.map((v, i) => `${i + 1}. ${v.name}`).join('\n');
-    const choice = prompt(`Sélectionnez votre nom (entrez le numéro):\n\n${names}`);
-
-    if (choice) {
-        const index = parseInt(choice) - 1;
-        if (index >= 0 && index < presentVisitors.length) {
-            const selectedVisitor = presentVisitors[index];
-            recordExit(selectedVisitor);
-        } else {
-            alert('Sélection invalide');
+        if (presentVisitors.length === 0) {
+            alert('Aucun visiteur actuellement présent');
+            return;
         }
+
+        const names = presentVisitors.map((v, i) => `${i + 1}. ${v.name}`).join('\n');
+        const choice = prompt(`Sélectionnez votre nom (entrez le numéro):\n\n${names}`);
+
+        if (choice) {
+            const index = parseInt(choice) - 1;
+            if (index >= 0 && index < presentVisitors.length) {
+                const selectedVisitor = presentVisitors[index];
+                await recordExit(selectedVisitor);
+            } else {
+                alert('Sélection invalide');
+            }
+        }
+    } catch (error) {
+        console.error('Erreur lors de la sortie rapide:', error);
+        alert('Erreur lors de la récupération des données. Veuillez réessayer.');
     }
 }
 
 // Enregistrement d'une sortie
-function recordExit(entryVisitor) {
+async function recordExit(entryVisitor) {
     const exit = {
         id: generateId(),
         name: entryVisitor.name,
@@ -158,46 +204,68 @@ function recordExit(entryVisitor) {
         time: new Date().toLocaleTimeString('fr-FR')
     };
 
-    visitors.push(exit);
-    saveVisitors();
-    showSuccessMessage(exit);
+    const success = await saveVisitor(exit);
+    if (success) {
+        showSuccessMessage(exit);
+    }
 }
 
 // Accès administrateur
-function handleAdminAccess() {
+async function handleAdminAccess() {
     const password = prompt('Mot de passe administrateur:');
 
-    if (password === ADMIN_PASSWORD) {
-        showView('adminView');
-        updateStats();
-        updateCurrentVisitorsList();
-        updateHistory();
-    } else if (password !== null) {
-        alert('Mot de passe incorrect');
+    if (!password) {
+        return;
+    }
+
+    try {
+        const data = await apiRequest('verifyPassword', {
+            method: 'POST',
+            body: { password: password }
+        });
+
+        if (data.valid) {
+            adminToken = password;
+            await loadVisitors();
+            showView('adminView');
+            await updateStats();
+            updateCurrentVisitorsList();
+            updateHistory();
+        } else {
+            alert('Mot de passe incorrect');
+        }
+    } catch (error) {
+        console.error('Erreur lors de la vérification du mot de passe:', error);
+        alert('Erreur de connexion au serveur');
     }
 }
 
 // Mise à jour des statistiques
-function updateStats() {
-    const today = new Date().toLocaleDateString('fr-FR');
-    const todayRecords = visitors.filter(v => v.date === today);
+async function updateStats() {
+    try {
+        const data = await apiRequest('stats');
+        const currentVisitors = getPresentVisitors().length;
 
-    const todayEntries = todayRecords.filter(v => v.action === 'entry').length;
-    const todayExits = todayRecords.filter(v => v.action === 'exit').length;
-    const currentVisitors = getPresentVisitors().length;
-
-    document.getElementById('currentVisitors').textContent = currentVisitors;
-    document.getElementById('todayEntries').textContent = todayEntries;
-    document.getElementById('todayExits').textContent = todayExits;
-    document.getElementById('totalVisits').textContent = visitors.length;
+        document.getElementById('currentVisitors').textContent = currentVisitors;
+        document.getElementById('todayEntries').textContent = data.todayEntries;
+        document.getElementById('todayExits').textContent = data.todayExits;
+        document.getElementById('totalVisits').textContent = data.total;
+    } catch (error) {
+        console.error('Erreur lors de la mise à jour des statistiques:', error);
+    }
 }
 
 // Obtenir la liste des visiteurs présents
 function getPresentVisitors() {
+    return getPresentVisitorsFromList(visitors);
+}
+
+// Obtenir la liste des visiteurs présents depuis une liste donnée
+function getPresentVisitorsFromList(visitorList) {
     const visitorMap = new Map();
 
     // Parcourir tous les enregistrements
-    visitors.forEach(record => {
+    visitorList.forEach(record => {
         if (record.action === 'entry') {
             visitorMap.set(record.name, record);
         } else if (record.action === 'exit') {
@@ -301,15 +369,22 @@ function exportToCSV() {
 }
 
 // Effacer toutes les données
-function clearAllData() {
+async function clearAllData() {
     if (confirm('Êtes-vous sûr de vouloir effacer TOUTES les données ? Cette action est irréversible.')) {
         if (confirm('Confirmer la suppression définitive ?')) {
-            visitors = [];
-            saveVisitors();
-            updateStats();
-            updateCurrentVisitorsList();
-            updateHistory();
-            alert('Toutes les données ont été effacées');
+            try {
+                await apiRequest('clearAll', {
+                    method: 'DELETE'
+                });
+                visitors = [];
+                await updateStats();
+                updateCurrentVisitorsList();
+                updateHistory();
+                alert('Toutes les données ont été effacées');
+            } catch (error) {
+                console.error('Erreur lors de la suppression des données:', error);
+                alert('Erreur lors de la suppression des données');
+            }
         }
     }
 }
